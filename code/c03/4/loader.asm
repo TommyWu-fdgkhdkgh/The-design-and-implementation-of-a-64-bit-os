@@ -263,6 +263,8 @@ Label_File_Loaded:
 	mov	al, 'G'
 	mov	[gs:((80 * 0 + 39) * 2)], ax	; 屏幕第 0 行, 第 39 列。
 
+	;jmp	$				; tmp instruction by fdgk
+
 KillMotor:
 	
 	push	dx
@@ -483,8 +485,8 @@ Label_SVGA_Mode_Info_Finish:
 	db	0x66
 	lgdt	[GdtPtr]
 
-;	db	0x66
-;	lidt	[IDT_POINTER]
+	db	0x66
+	lidt	[IDT_POINTER]
 
 	mov	eax,	cr0
 	or	eax,	1

@@ -57,6 +57,7 @@ fi
 mount -t vfat -o loop boot.img tmp/
 
 cp loader.bin tmp/
+cp kernel.bin tmp/
 sync
 umount tmp/
 

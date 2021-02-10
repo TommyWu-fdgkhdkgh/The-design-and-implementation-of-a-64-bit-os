@@ -57,12 +57,19 @@ SelectorData64	equ	LABEL_DESC_DATA64 - LABEL_GDT64
 
 Label_Start:
 
+; cs = 0x1000
+
 	mov	ax,	cs
 	mov	ds,	ax
 	mov	es,	ax
 	mov	ax,	0x00
 	mov	ss,	ax
 	mov	sp,	0x7c00
+
+; ds = 0x1000
+; es = 0x1000
+; ss = 0x00
+; sp = 0x7c00
 
 ;=======	display on screen : Start Loader......
 
@@ -79,24 +86,29 @@ Label_Start:
 
 ;=======	open address A20
 	push	ax
-	in	al,	92h
-	or	al,	00000010b
-	out	92h,	al
+	in	al,	92h				; 從 I/O 0x92 拿取資料 
+	or	al,	00000010b			; 打開一個 bit
+	out	92h,	al				; 輸入資料到 I/O 0x92
 	pop	ax
 
-	cli
+	cli						; 關閉外部中斷
 
-	lgdt	[GdtPtr]	
+	lgdt	[GdtPtr]				; Q: 為什麼這邊需要 lgdt ?
+							; A: 為了開啟 big real mode 模式，將 FS 的定址能力拉長，所以
+							;      必須要暫時開啟 protected mode。而想要打開 protected mode
+							;      就必須設定好 gdt
 
-	mov	eax,	cr0
+	mov	eax,	cr0				; 打開 protected mode，在這裡會暫時跳到 protected mode
 	or	eax,	1
 	mov	cr0,	eax
 
 	mov	ax,	SelectorData32
-	mov	fs,	ax
+	mov	fs,	ax				; 在 protected mode 下對 fs 賦值
 	mov	eax,	cr0
 	and	al,	11111110b
-	mov	cr0,	eax
+	mov	cr0,	eax				; 關掉 protected mode， 回到 real mode
+
+; 到這裡，原本 fs 的尋址能力只有 1MB，會被拉長到 4GB，這是為了把 kernel 搬移到 1MB 以上的位置
 
 	sti
 
@@ -175,7 +187,9 @@ Label_No_LoaderBin:
 	int	10h
 	jmp	$
 
-;=======	found loader.bin name in root director struct
+;=======	found kernel.bin name in root director struct
+
+; 當我們找到了 kernel bin ， di 會指向該根目錄的 DIR_NAME 的後一個 bit
 
 Label_FileName_Found:
 	mov	ax,	RootDirSectors
@@ -185,9 +199,9 @@ Label_FileName_Found:
 	push	cx
 	add	cx,	ax
 	add	cx,	SectorBalance
-	mov	eax,	BaseTmpOfKernelAddr;BaseOfKernelFile
-	mov	es,	eax
-	mov	bx,	OffsetTmpOfKernelFile;OffsetOfKernelFile
+	mov	eax,	BaseTmpOfKernelAddr			;BaseTmpOfKernelFile   == 0x0
+	mov	es,	eax					;Q: 為什麼這邊突然能用 eax ?
+	mov	bx,	OffsetTmpOfKernelFile			;OffsetTmpOfKernelFile == 0x7E00
 	mov	ax,	cx
 
 Label_Go_On_Loading_File:
@@ -211,15 +225,19 @@ Label_Go_On_Loading_File:
 	push	edi
 	push	ds
 	push	esi
+; 這裡暫且把可能用到的暫存器先 push 到 stack 上
+; 在這裡把 kernel 從 temp 搬到真正想存 kernel 的地方
 
-	mov	cx,	200h
-	mov	ax,	BaseOfKernelFile
+
+	mov	cx,	200h					; 0x200 = 512 = 一個磁區的大小
+
+	mov	ax,	BaseOfKernelFile			; BaseOfKernelFile = 0x00
 	mov	fs,	ax
-	mov	edi,	dword	[OffsetOfKernelFileCount]
+	mov	edi,	dword	[OffsetOfKernelFileCount]	; OffsetOfKernelFileCount = OffsetOfKernelFile 
 
-	mov	ax,	BaseTmpOfKernelAddr
+	mov	ax,	BaseTmpOfKernelAddr			; BaseTmpOfKernelAddr = 0x00
 	mov	ds,	ax
-	mov	esi,	OffsetTmpOfKernelFile
+	mov	esi,	OffsetTmpOfKernelFile			; OffsetTmpOfKernelFile = 0x7E00
 
 Label_Mov_Kernel:	;------------------
 	
@@ -229,12 +247,13 @@ Label_Mov_Kernel:	;------------------
 	inc	esi
 	inc	edi
 
-	loop	Label_Mov_Kernel
+	loop	Label_Mov_Kernel				; loop 這個偽指令會執行到 cx == 0
+								;   每執行一輪， cx--
 
 	mov	eax,	0x1000
 	mov	ds,	eax
 
-	mov	dword	[OffsetOfKernelFileCount],	edi
+	mov	dword	[OffsetOfKernelFileCount],	edi	; buffer 的基底往後挪一個磁區
 
 	pop	esi
 	pop	ds
@@ -271,6 +290,9 @@ KillMotor:
 	out	dx,	al
 	pop	dx
 
+; 關閉驅動馬達是靠 I/O port 0x3f2 輸入 0 
+; 詳情可看書 62 頁
+
 ;=======	get memory address size type
 
 	mov	ax,	1301h
@@ -283,6 +305,8 @@ KillMotor:
 	pop	ax
 	mov	bp,	StartGetMemStructMessage
 	int	10h
+; 顯示字串
+
 
 	mov	ebx,	0
 	mov	ax,	0x00
@@ -295,13 +319,29 @@ Label_Get_Mem_Struct:
 	mov	ecx,	20
 	mov	edx,	0x534D4150
 	int	15h
+; BIOS 中斷 : int 0x15, ax 0x0E820
+; EDX       : 0x534D4150 --> "SMAP"
+; EBX       : 0x00000000
+; ECX       : 返結果的長度
+; ES:DI     : 保存返回結果的 buffer 
+
+; return value ...
+; CF  == 0, 此 BIOS 中斷成功
+; EAX == 0x534D4150 --> "SMAP"
+; EBX == 0x00000000 --> 當 EBX == 0 時，表示檢測結束。有其他值的話，表示後續映射訊息的結構體編號
+; ECX == 保存實際返回的結構的長度
+
+; 若 CF == 1 ， 表示此 BIOS 中斷失敗
+; AH == 錯誤碼， 0x80 --> 無效命令， 0x86 --> 不支持此功能
+
 	jc	Label_Get_Mem_Fail
-	add	di,	20
+	add	di,	20			; 每一個結構體的大小為 20 bytes ， 所以每當我們拿到一個結構體
+						;   則 buffer 需要往後調 20 bytes
 	inc	dword	[MemStructNumber]
 
 	cmp	ebx,	0
-	jne	Label_Get_Mem_Struct
-	jmp	Label_Get_Mem_OK
+	jne	Label_Get_Mem_Struct		; 假如 EBX 不等於 0, 表示我們還需要讀取其他的結構體
+	jmp	Label_Get_Mem_OK		; 假如 EBX   等於 0, 表示我們成功的拿取所有結構體的資訊
 
 Label_Get_Mem_Fail:
 
@@ -677,25 +717,37 @@ Label_DispAL:
 	push	edi
 	
 	mov	edi,	[DisplayPosition]
-	mov	ah,	0Fh
-	mov	dl,	al
-	shr	al,	4
-	mov	ecx,	2
-.begin:
+	mov	ah,	0Fh			; Q: 不太懂這一行要做什麼
+						; A: 字元的屬性 --> 前 4 bits 0000: 黑底, 後 4 bits 1111: 白字
+	mov	dl,	al				
+	shr	al,	4			; 每 4 bits 代表一個 16 進位的數字
+						;   這邊向右偏移 4 bits， 表示我們想取用後 4 bits 的值
+						;   e.g. 0xAD ， 向右偏移 ( shr ) 4 bits 後
+						;   我們就能得到 0xA 
 
+	mov	ecx,	2			; Q: 不懂 ecx 是在做什麼
+						; 但少了這一行，字元會永無止盡的印下去
+						; A: 喔喔看懂了，下面有 loop .begin
+						;    每走一步，就會 ecx-- ， 這邊表示每次呼叫
+						;    Label_DispAL，都需要印出兩個字元
+.begin:
+						; 先處理原先 al 的 5 ~ 8 bits ，爾後再處理 0 ~ 4 bits
 	and	al,	0Fh
 	cmp	al,	9
 	ja	.1
 	add	al,	'0'
 	jmp	.2
-.1:
+.1:						; 假若這次處理的 4 bits 的值 >= 0xa						
 
 	sub	al,	0Ah
 	add	al,	'A'
-.2:
+.2:						; 假若這次處理的 4 bits 的值 < 0xa
 
 	mov	[gs:edi],	ax
-	add	edi,	2
+	add	edi,	2			; ah --> 字元屬性，共 8 bits
+						; al --> 決定是要顯示哪個字元, 共 8 bits
+						; ax --> 2 bytes
+						; 所以這邊 edi 每給一個字元，就需要 +2
 	
 	mov	al,	dl
 	loop	.begin
