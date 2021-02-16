@@ -62,16 +62,21 @@ SelectorData32	equ	LABEL_DESC_DATA32 - LABEL_GDT
 
 [SECTION gdt64]
 
+; dq : 8 Bytes
+
 LABEL_GDT64:		dq	0x0000000000000000
-LABEL_DESC_CODE64:	dq	0x0020980000000000
-LABEL_DESC_DATA64:	dq	0x0000920000000000
+LABEL_DESC_CODE64:	dq	0x0020980000000000			; 書本 p229
+LABEL_DESC_DATA64:	dq	0x0000920000000000			; 書本 p230
+
+; Q: segment selector   在 protection mode 以及 long mode 應該相同 ?
+; Q: segment descriptor 在 protection mode 以及 long mode 的長度應該相同 ( 都是 8 bytes ) ? 
 
 GdtLen64	equ	$ - LABEL_GDT64
 GdtPtr64	dw	GdtLen64 - 1
 		dd	LABEL_GDT64
 
-SelectorCode64	equ	LABEL_DESC_CODE64 - LABEL_GDT64
-SelectorData64	equ	LABEL_DESC_DATA64 - LABEL_GDT64
+SelectorCode64	equ	LABEL_DESC_CODE64 - LABEL_GDT64		; 8 
+SelectorData64	equ	LABEL_DESC_DATA64 - LABEL_GDT64		; 16
 
 [SECTION .s16]
 [BITS 16]
@@ -250,18 +255,18 @@ Label_Go_On_Loading_File:
 ; 在這裡把 kernel 從 temp 搬到真正想存 kernel 的地方
 
 
-	mov	cx,	200h                                    ; 0x200 = 512 = 一個磁區的大小
+	mov	cx,	200h					; 0x200 = 512 = 一個磁區的大小
 
-	mov	ax,	BaseOfKernelFile			            ; BaseOfKernelFile = 0x00
+	mov	ax,	BaseOfKernelFile			; BaseOfKernelFile = 0x00
 	mov	fs,	ax
 	mov	edi,	dword	[OffsetOfKernelFileCount]	; OffsetOfKernelFileCount = OffsetOfKernelFile 
 
-	mov	ax,	BaseTmpOfKernelAddr			            ; BaseTmpOfKernelAddr = 0x00
+	mov	ax,	BaseTmpOfKernelAddr			; BaseTmpOfKernelAddr = 0x00
 	mov	ds,	ax
-	mov	esi,	OffsetTmpOfKernelFile   			; OffsetTmpOfKernelFile = 0x7E00
+	mov	esi,	OffsetTmpOfKernelFile   		; OffsetTmpOfKernelFile = 0x7E00
 
 Label_Mov_Kernel:	;------------------
-	
+	00000
 	mov	al,	byte	[ds:esi]
 	mov	byte	[fs:edi],	al
 
@@ -595,8 +600,6 @@ Label_SVGA_Mode_Info_Finish:
 ;   I/O 位址 ( I/O Address    )    : 必須經由特殊的 IN/OUT instruction 才能夠訪問
 ;   記憶體位址 ( Memory Address  ) : 經由 邏輯位址 --> 線性位址 --> 轉換而來的記憶體位址，不只可用來拜訪 Main Memory ， 也可以用以拜訪 Peripheral Device 
 
-
-
 [SECTION .s32]
 [BITS 32]
 
@@ -612,20 +615,44 @@ GO_TO_TMP_Protect:
 	mov	esp,	7E00h
 	
 	call	support_long_mode
+
 	test	eax,	eax
 
-	jz	no_support
+	jz	no_support				; 若 eax == 0，就跳到該 label
+
+
 
 ;=======	init temporary page table 0x90000
+
+;-------- PML4T ( Page Map Level 4 )
 
 	mov	dword	[0x90000],	0x91007
 	mov	dword	[0x90800],	0x91007		
 
+; PWT = 0x1
+; PCD = 0x1
+
+;--------
+
+;-------- PDPT
+
 	mov	dword	[0x91000],	0x92007
+
+; PWT = 0x1
+; PCD = 0x1
+
+;--------
+
+;-------- PDT ， 使用 2MB 物理頁，於是沒有 PT
 
 	mov	dword	[0x92000],	0x000083
 
 	mov	dword	[0x92008],	0x200083
+
+; 0x100000 --> 1 MB
+; 0x200000 --> 2 MB
+; 每個 entry 大小為 8 bytes
+; 每頁能指向的物理位址範圍為 2 MB
 
 	mov	dword	[0x92010],	0x400083
 
@@ -634,11 +661,17 @@ GO_TO_TMP_Protect:
 	mov	dword	[0x92020],	0x800083
 
 	mov	dword	[0x92028],	0xa00083
+
+; R/W = 0x1
+; U/S = 0x1
+; PAT = 0x1
 	
+;--------
+
 ;=======	load GDTR
 	
 	lgdt	[GdtPtr64]
-	mov	ax,	0x10
+	mov	ax,	0x10			; 指向 LABEL_DESC_DATA32
 	mov	ds,	ax
 	mov	es,	ax
 	mov	fs,	ax
@@ -648,6 +681,10 @@ GO_TO_TMP_Protect:
 	mov	esp,	7E00h
 	
 ;=======	open PAE
+
+; 書本 p197, PAE ( Physical Address Extension )
+; PAE wikipedia : https://zh.wikipedia.org/zh-tw/%E7%89%A9%E7%90%86%E5%9C%B0%E5%9D%80%E6%89%A9%E5%B1%95
+;   對於在長模式（long mode）中的x86-64處理器，PAE是必須的
 
 	mov	eax,	cr4
 	bts	eax,	5
@@ -661,33 +698,70 @@ GO_TO_TMP_Protect:
 ;=======	enable long-mode
 
 	mov	ecx,	0C0000080h		;IA32_EFER
+
+; ecx 需要先載入暫存器地址
+;   MSR 暫存器組有多種暫存器，而 0xc0000080 通常代表的是 IA32_EFER 這個暫存器
+; 書本 p198 ~ p199
+
 	rdmsr
 
 	bts	eax,	8
 	wrmsr
 
+
+
 ;=======	open PE and paging
 
+; 書本 p196
+
 	mov	eax,	cr0
-	bts	eax,	0
-	bts	eax,	31
+;	bts	eax,	0				; PE : Protection Enable
+							; Q: 為什麼需要這一行 ? 上面應該已經打開了 protection mode 才對
+	
+	bts	eax,	31				; PG : enable paging
 	mov	cr0,	eax
 
 	jmp	SelectorCode64:OffsetOfKernelFile
 
+; 在這邊整理一下，這個位址經由 segmentation 以及 paging 換算出位址的過程：
+
+; SelectorCode64 :	0x8 
+; OffsetOfKernelFile :	0x100000 ( 1 MB )
+
+; 在 segmentation 這邊，會選用 LABEL_DESC_CODE64，基底位址為 0 ，偏移為 0x100000 
+;   經由 segmentation 後，可得 "線性地址" 0x100000
+
+; 在 paging 這邊，因為我們是使用長度為 0x200000 ( 2MB ) 的物理頁，所以可以很清楚的知道線性地址 0x1000000 ( 1MB )
+;   一定會是在第一張頁，並且偏移量為 0x100000 ( 1MB )
+
 ;=======	test support long mode or not
+
+; cpuid : https://en.wikipedia.org/wiki/CPUID#EAX=80000000h:_Get_Highest_Extended_Function_Implemented
+; eax == 0x80000000 + cpuid
+;   get highest extended function implemented
+
+; eax == 0x80000001 + cpuid
+;   extended processor info and feature bits
 
 support_long_mode:
 
 	mov	eax,	0x80000000
 	cpuid
+
+; 至此可以得到 "highest extended function implemented" , 這個數值要大於等於 0x80000001，才表示 "有可能" 支援 long mode 
+; 當我們能確定能使用 eax >= 0x80000001 的功能後，再使用
+
 	cmp	eax,	0x80000001
 	setnb	al	
-	jb	support_long_mode_done
+	jb	support_long_mode_done				; Q: 為什麼需要這一行?
+								; A: 假如 0x80000001 功能號不存在，就立刻返回 eax == 0
+								; jb : 當 cmp a, b 時， 若 a < b 就跳到指定的 label
+
 	mov	eax,	0x80000001
 	cpuid
-	bt	edx,	29
-	setc	al
+	bt	edx,	29					; bt : bit test
+
+	setc	al						; set if Carry
 support_long_mode_done:
 	
 	movzx	eax,	al
