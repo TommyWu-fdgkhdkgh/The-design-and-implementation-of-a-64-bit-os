@@ -28,16 +28,37 @@ MemoryStructBufferAddr	equ	0x7E00
 
 [SECTION gdt]
 
+; dd --> 4 bytes
+; dw --> 2 bytes
+; db --> 1 bytes ( 8 bits )
+
 LABEL_GDT:		dd	0,0
 LABEL_DESC_CODE32:	dd	0x0000FFFF,0x00CF9A00
 LABEL_DESC_DATA32:	dd	0x0000FFFF,0x00CF9200
+
+; LABEL_DESC_CODE32 
+;   段基位址 == 0x0     --> 段基位址在 "線性位址" == 0 的地方
+;   段長度   == 0xFFFFF
+;   DPL      == 0x0
+;   Type     == b1010   --> 非一致性，可讀，未訪問
 
 GdtLen	equ	$ - LABEL_GDT
 GdtPtr	dw	GdtLen - 1
 	dd	LABEL_GDT	;be carefull the address(after use org)!!!!!!
 
+; 到這裡～讀完書的 p 202 ~ 214 ， 然後整理出 "段選擇子  ( selector, 段寄存器保存的值 )"，"GDT"， "段描述符" 間的關係
+
+; "段寄存器 ( segment register )" 所保存的值便是"段選擇子 ( segment selector )"，以及透過段選擇子所選到的 segment descriptor ( 以避免不斷的對 Main Memory 內的 GDT 進行多次 request ) 。
+;  使用 segment selector 在 " Global Offset Table "
+
 SelectorCode32	equ	LABEL_DESC_CODE32 - LABEL_GDT
 SelectorData32	equ	LABEL_DESC_DATA32 - LABEL_GDT
+
+; 在這裡， SelectorCode32 == 8 == b1000，也就是 GDT 的第一個 entry。
+; Segment Selector 
+;   0 ~ 1  bit : RPL
+;   2      bit : TI， 0 == GDT, 1 == LDT
+;   3 ~ 15 bit : 段選擇子索引 ( Index )
 
 [SECTION gdt64]
 
@@ -200,7 +221,7 @@ Label_FileName_Found:
 	add	cx,	ax
 	add	cx,	SectorBalance
 	mov	eax,	BaseTmpOfKernelAddr			;BaseTmpOfKernelFile   == 0x0
-	mov	es,	eax					;Q: 為什麼這邊突然能用 eax ?
+	mov	es,	eax			            		;Q: 為什麼這邊突然能用 eax ?
 	mov	bx,	OffsetTmpOfKernelFile			;OffsetTmpOfKernelFile == 0x7E00
 	mov	ax,	cx
 
@@ -229,15 +250,15 @@ Label_Go_On_Loading_File:
 ; 在這裡把 kernel 從 temp 搬到真正想存 kernel 的地方
 
 
-	mov	cx,	200h					; 0x200 = 512 = 一個磁區的大小
+	mov	cx,	200h                                    ; 0x200 = 512 = 一個磁區的大小
 
-	mov	ax,	BaseOfKernelFile			; BaseOfKernelFile = 0x00
+	mov	ax,	BaseOfKernelFile			            ; BaseOfKernelFile = 0x00
 	mov	fs,	ax
 	mov	edi,	dword	[OffsetOfKernelFileCount]	; OffsetOfKernelFileCount = OffsetOfKernelFile 
 
-	mov	ax,	BaseTmpOfKernelAddr			; BaseTmpOfKernelAddr = 0x00
+	mov	ax,	BaseTmpOfKernelAddr			            ; BaseTmpOfKernelAddr = 0x00
 	mov	ds,	ax
-	mov	esi,	OffsetTmpOfKernelFile			; OffsetTmpOfKernelFile = 0x7E00
+	mov	esi,	OffsetTmpOfKernelFile   			; OffsetTmpOfKernelFile = 0x7E00
 
 Label_Mov_Kernel:	;------------------
 	
@@ -335,13 +356,13 @@ Label_Get_Mem_Struct:
 ; AH == 錯誤碼， 0x80 --> 無效命令， 0x86 --> 不支持此功能
 
 	jc	Label_Get_Mem_Fail
-	add	di,	20			; 每一個結構體的大小為 20 bytes ， 所以每當我們拿到一個結構體
-						;   則 buffer 需要往後調 20 bytes
+	add	di,	20			                ; 每一個結構體的大小為 20 bytes ， 所以每當我們拿到一個結構體
+						                ;   則 buffer 需要往後調 20 bytes
 	inc	dword	[MemStructNumber]
 
 	cmp	ebx,	0
-	jne	Label_Get_Mem_Struct		; 假如 EBX 不等於 0, 表示我們還需要讀取其他的結構體
-	jmp	Label_Get_Mem_OK		; 假如 EBX   等於 0, 表示我們成功的拿取所有結構體的資訊
+	jne	Label_Get_Mem_Struct		    ; 假如 EBX 不等於 0, 表示我們還需要讀取其他的結構體
+	jmp	Label_Get_Mem_OK		        ; 假如 EBX   等於 0, 表示我們成功的拿取所有結構體的資訊
 
 Label_Get_Mem_Fail:
 
@@ -373,6 +394,12 @@ Label_Get_Mem_OK:
 
 ;=======	get SVGA information
 
+; 小整理
+; int 0x10, ax == 0x4F00 --> get information of "VbeInfoBlock"
+; int 0x10, ax == 0x4F01 --> get information of "ModeInfoBlock" 
+; int 0x10, ax == 0x4F02 --> set the SVGA mode(VESA VBE)
+; int 0x10, ax == 0x4F03 --> 獲取當前的 VBE 模式
+
 	mov	ax,	1301h
 	mov	bx,	000Fh
 	mov	dx,	0800h		;row 8
@@ -390,8 +417,14 @@ Label_Get_Mem_OK:
 	mov	ax,	4F00h
 
 	int	10h
+; input : 
+;   int 0x10, ax == 0x4f00 --> 可以看書的 p 264，表 7-9 
+;     獲取 VBE 控制器的訊息
+;   ES:DI : 指向 VbeInfoBlock 這個結構的起始位址
 
 	cmp	ax,	004Fh
+
+; 假如 ax == 0x4f ， 表示這個呼叫有成功
 
 	jz	.KO
 	
@@ -444,6 +477,10 @@ Label_Get_Mem_OK:
 	mov	esi,	dword	[es:si]
 	mov	edi,	0x8200
 
+; 0x8000 ，是上面我們用 int 0x10, ax == 0x4F00 所載入的 VbeInfoBlock 的位址
+; 0xe 是該結構的成員變數 "VideoModePtr" 的偏移量
+
+
 Label_SVGA_Mode_Info_Get:
 
 	mov	cx,	word	[es:esi]
@@ -475,11 +512,16 @@ Label_SVGA_Mode_Info_Get:
 	jnz	Label_SVGA_Mode_Info_FAIL	
 
 	inc	dword		[SVGAModeCounter]
-	add	esi,	2
-	add	edi,	0x100
+	add	esi,	2                           ; 每次我們會用 Label_DispAL 這個 function 
+                                            ;   顯示 2 bytes 長度的資訊
+	add	edi,	0x100                       ; 每一個 ModeInfoBlock 的結構長度為 256 Bytes
 
 	jmp	Label_SVGA_Mode_Info_Get
-		
+
+;   先使用 int 0x10, ax == 0x4F00 拿出 VbeInfoBlock 取出 VideoModePtr
+;     開始遍尋這個 list，每遍尋一個 entry 就呼叫一次 int 0x10, ax == 0x4F01 來獲取 ModeInfoBlock
+
+
 Label_SVGA_Mode_Info_FAIL:
 
 	mov	ax,	1301h
@@ -516,6 +558,10 @@ Label_SVGA_Mode_Info_Finish:
 	mov	bx,	4180h	;========================mode : 0x180 or 0x143
 	int 	10h
 
+; int 0x10, ax == 0x4F02 --> set the SVGA mode
+; bx == 0x4180, 4 --> 啟用線性幀緩存, 0x180 --> 設置 VBE 的顯示模式 
+; Q: 什麼是 "線性幀緩存"，什麼是 "窗口幀緩存" ?
+
 	cmp	ax,	004Fh
 	jnz	Label_SET_SVGA_Mode_VESA_VBE_FAIL
 
@@ -531,7 +577,25 @@ Label_SVGA_Mode_Info_Finish:
 	or	eax,	1
 	mov	cr0,	eax	
 
+; cr0 的第一個 bit 為 PE ( protection enable )
+
 	jmp	dword SelectorCode32:GO_TO_TMP_Protect
+
+; SelectorCode32 equ LABEL_DESC_CODE32 - LABEL_GDT ， 代表 GDT 的開頭，到 LABEL_DESC_CODE32 的位址的偏移量
+;   此時只有開啟新的段選擇機制，還沒有 paging。 
+
+; 邏輯位址 -- segmentation --> 線性位址 -- paging --> Memory Address
+; 若沒 paging ， 則線性位址 == 物理位址
+
+; 虛擬位址 ( Virtual Address )
+;   邏輯位址 ( Logical Address   ) : 格式為 segment : Offset ， 這個 Offset 又被稱為 "有效位址" 
+;   線性位址 ( Linear  Address   ) : 經邏輯位址 "segment : Offset" 換算而成
+;   有效位址 ( Effective Address ) : 同上述
+; 物理位址 ( Physical Address ) 
+;   I/O 位址 ( I/O Address    )    : 必須經由特殊的 IN/OUT instruction 才能夠訪問
+;   記憶體位址 ( Memory Address  ) : 經由 邏輯位址 --> 線性位址 --> 轉換而來的記憶體位址，不只可用來拜訪 Main Memory ， 也可以用以拜訪 Peripheral Device 
+
+
 
 [SECTION .s32]
 [BITS 32]
