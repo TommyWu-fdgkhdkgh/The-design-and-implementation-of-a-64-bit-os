@@ -39,7 +39,7 @@ _start:
 //=======	load	IDTR
 
 	lidt	IDT_POINTER(%rip)
-// 這邊先載入 IDT 位址，但我們還沒初始化中斷函式
+; 這邊先載入 IDT 位址，但我們還沒初始化中斷函式
 
 	mov	$0x10,	%ax
 	mov	%ax,	%ds
@@ -55,19 +55,12 @@ _start:
 	movq	$0x101000,	%rax
 	movq	%rax,		%cr3		
 	movq	switch_seg(%rip),	%rax
-/*
-DEAD:
-	jmp	DEAD
-*/
+
+	jmp	$
 
 	pushq	$0x08
 	pushq	%rax
-	lretq					// Q: 為什麼這裡需要使用 lretq 來進行段間的跳轉 ?
-						//    跳過來的時候 cs 就已經是 0x8 了呀 ?
-
-/*
-	jmp	entry64
-*/
+	lretq					; Q: 為什麼這裡需要使用 lretq 來進行段間的跳轉 ?
 
 //=======	64-bit mode code
 
@@ -75,7 +68,6 @@ switch_seg:
 	.quad	entry64
 
 entry64:
-
 	movq	$0x10,	%rax
 	movq	%rax,	%ds
 	movq	%rax,	%es
@@ -84,11 +76,7 @@ entry64:
 	movq	$0xffff800000007E00,	%rsp		/* rsp address */
 
 	movq	go_to_kernel(%rip),	%rax		/* movq address */
-/*
-  我猜: go_to_kernel 是偏移量，也就是位址。而 go_to_kernel(%rip) 最後會賦予 %rax 在 go_to_kernel 這個位址上的 "值"
-*/
-
-	pushq	$0x08					/* choose segment selector */
+	pushq	$0x08
 	pushq	%rax
 	lretq
 
@@ -97,14 +85,14 @@ go_to_kernel:
 
 //=======	init page
 .align 8
-// 書本 p81
-// 對齊標準設置為 8 bytes
+; 書本 p81
+; 對齊標準設置為 8 bytes
 
 
 .org	0x1000
-// 書本 p81
-// 位於內核頭執行序起始位址偏移量為 0x1000 的地方
-// 因為內核頭執行序的起始位址為 0x100000 ( 1 MB ) 所以在上面載入頁表基礎位址的地方，才會選擇載入 0x101000
+; 書本 p81
+; 位於內核頭執行序起始位址偏移量為 0x1000 的地方
+; 因為內核頭執行序的起始位址為 0x100000 ( 1 MB ) 所以在上面載入頁表基礎位址的地方，才會選擇載入 0x101000
 
 __PML4E:
 
@@ -112,12 +100,6 @@ __PML4E:
 	.fill	255,8,0
 	.quad	0x102007
 	.fill	255,8,0
-
-/*
-  這裡讓 0xffff800000007E00, 0xffff000000007E00, 0x0000000000007E00, 0x0000800000007E00 映射到同個 PML4E 的物理位址
-
-  詳情可看課本 p227 ~ p237
-*/
 
 .org	0x2000
 

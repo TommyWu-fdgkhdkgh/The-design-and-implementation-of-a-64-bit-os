@@ -5,7 +5,7 @@
 # 1 "/usr/include/stdc-predef.h" 1 3 4
 # 32 "<command-line>" 2
 # 1 "head.S"
-# 16 "head.S"
+# 18 "head.S"
 .section .text
 
 .globl _start
@@ -21,11 +21,16 @@ _start:
 
 
 
+
+
  lgdt GDT_POINTER(%rip)
 
 
 
+
+
  lidt IDT_POINTER(%rip)
+
 
  mov $0x10, %ax
  mov %ax, %ds
@@ -41,9 +46,8 @@ _start:
  movq $0x101000, %rax
  movq %rax, %cr3
  movq switch_seg(%rip), %rax
- pushq $0x08
- pushq %rax
- lretq
+# 66 "head.S"
+ jmp entry64
 
 
 
@@ -51,6 +55,7 @@ switch_seg:
  .quad entry64
 
 entry64:
+
  movq $0x10, %rax
  movq %rax, %ds
  movq %rax, %es
@@ -69,7 +74,13 @@ go_to_kernel:
 
 .align 8
 
+
+
+
 .org 0x1000
+
+
+
 
 __PML4E:
 
