@@ -135,6 +135,8 @@ int vsprintf(char * buf,const char *fmt, va_list args)
 
 	int qualifier;		/* 'h', 'l', 'L' or 'Z' for integer fields */
 
+	// fmt : format string like "hello %s"
+
 	for(str = buf; *fmt; fmt++)
 	{
 
@@ -256,6 +258,9 @@ int vsprintf(char * buf,const char *fmt, va_list args)
 					flags |= SMALL;
 
 				case 'X':
+					/*
+						number 我猜是把 str 丟進去，把數字填上，然後把往後推的指標 return 回來	
+					*/
 
 					if(qualifier == 'l')
 						str = number(str,va_arg(args,unsigned long),16,field_width,precision,flags);
@@ -310,18 +315,31 @@ int vsprintf(char * buf,const char *fmt, va_list args)
 }
 
 /*
-
+  FRcolor 前景顏色，
+  BKcolor 背景顏色
 */
 
 int color_printk(unsigned int FRcolor,unsigned int BKcolor,const char * fmt,...)
 {
+
+/*
+
+  真正把字元寫上去的是 putchar 這個 function
+ 
+  在這邊會調位子，並用 putchar 真正把字元畫上去
+  
+  putchar 不會直接取用 Pos 這個全域變數，是由 color_printk 餵給它的
+
+*/
+
+
 	int i = 0;
 	int count = 0;
 	int line = 0;
 	va_list args;
 	va_start(args, fmt);
 
-	i = vsprintf(buf,fmt, args);
+	i = vsprintf(buf, fmt, args);
 
 	va_end(args);
 

@@ -62,7 +62,10 @@ struct position
 	unsigned int * FB_addr;
 	unsigned long FB_length;
 }Pos;
+/*
+  全域變數，紀錄現在印字元印到哪邊去了
 
+*/
 
 /*
 
