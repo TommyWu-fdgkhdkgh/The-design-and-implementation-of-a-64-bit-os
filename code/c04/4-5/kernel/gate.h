@@ -31,6 +31,23 @@ extern struct gate_struct IDT_Table[];
 extern unsigned int TSS64_Table[26];
 
 /*
+  陳鍾誠 老師的教學
+  http://ccckmit.wikidot.com/as:inlinec
+
+  限制條件 ( 下面的 "m", "i", "a", "d" ... )，以英文來說的話，叫做 inline assembly 的 constrain
+
+  a, d, c 這幾個 constrain 可看這裡的 x86 family
+  https://gcc.gnu.org/onlinedocs/gcc/Machine-Constraints.html#Machine-Constraints
+
+  m, i, "3", "2" 可看
+  http://ccckmit.wikidot.com/as:inlinec
+  https://gcc.gnu.org/onlinedocs/gcc/Simple-Constraints.html#Simple-Constraints
+
+我猜，因為不懂我們現在 machine 算是 x86 還是 Intel-ia64：
+  "3" 代表的是"對齊輸入 constrain 的第三項"，在這裡輸入參數的第三項 ( 0-indexed ) 的 constrain 為 "=&d"，所以這裡的 "3" 代表 edx ( 或 rdx ? ) 
+  "2" 的原理同上，這裡代表的是 eax ( 或 rax ? )
+  
+Q: 不太懂為什麼這裡需要 __d0 跟 __d1 耶？ 直接在輸入參數用 a 以及 d 是不行的嗎?
 
 */
 
@@ -50,11 +67,11 @@ do								\
 					"movq	%%rax,	%0	\n\t"	\
 					"shrq	$32,	%%rdx	\n\t"	\
 					"movq	%%rdx,	%1	\n\t"	\
-					:"=m"(*((unsigned long *)(gate_selector_addr)))	,					\
+/* 輸出參數 */				:"=m"(*((unsigned long *)(gate_selector_addr)))	,					\
 					 "=m"(*(1 + (unsigned long *)(gate_selector_addr))),"=&a"(__d0),"=&d"(__d1)		\
-					:"i"(attr << 8),									\
+/* 輸入參數 */				:"i"(attr << 8),									\
 					 "3"((unsigned long *)(code_addr)),"2"(0x8 << 16),"c"(ist)				\
-					:"memory"		\
+/* 在這次的內嵌組語，我們會改動誰 */	:"memory"		\
 				);				\
 }while(0)
 
