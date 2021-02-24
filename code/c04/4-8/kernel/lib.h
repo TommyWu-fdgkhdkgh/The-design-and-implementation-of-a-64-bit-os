@@ -146,7 +146,7 @@ inline int memcmp(void * FirstPart,void * SecondPart,long Count)
 		set memory at Address with C ,number is Count
 */
 
-inline void * memset(void * Address,unsigned char C,long Count)
+/*inline*/ void * memset(void * Address,unsigned char C,long Count)
 {
 	int d0,d1;
 	unsigned long tmp = C * 0x0101010101010101UL;
@@ -305,7 +305,7 @@ inline int strncmp(char * FirstPart,char * SecondPart,long Count)
 
 */
 
-inline int strlen(char * String)
+/*inline*/ int strlen(char * String)
 {
 	register int __res;
 	__asm__	__volatile__	(	"cld	\n\t"

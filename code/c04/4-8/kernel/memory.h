@@ -282,7 +282,7 @@ do								\
 
 */
 
-inline unsigned long * Get_gdt()
+/*inline*/ unsigned long * Get_gdt()
 {
 	unsigned long * tmp;
 	__asm__ __volatile__	(
