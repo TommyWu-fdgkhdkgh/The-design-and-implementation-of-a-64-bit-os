@@ -305,7 +305,7 @@ inline int strncmp(char * FirstPart,char * SecondPart,long Count)
 
 */
 
-inline int strlen(char * String)
+/*inline*/ int strlen(char * String)
 {
 	register int __res;
 	__asm__	__volatile__	(	"cld	\n\t"

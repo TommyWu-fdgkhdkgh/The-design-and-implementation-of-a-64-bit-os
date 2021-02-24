@@ -46,11 +46,15 @@ _start:
  movq $0x101000, %rax
  movq %rax, %cr3
  movq switch_seg(%rip), %rax
-# 66 "head.S"
- jmp entry64
 
 
 
+
+
+ pushq $0x08
+ pushq %rax
+ lretq
+# 74 "head.S"
 switch_seg:
  .quad entry64
 
@@ -64,6 +68,10 @@ entry64:
  movq $0xffff800000007E00, %rsp
 
  movq go_to_kernel(%rip), %rax
+
+
+
+
  pushq $0x08
  pushq %rax
  lretq
@@ -88,6 +96,12 @@ __PML4E:
  .fill 255,8,0
  .quad 0x102007
  .fill 255,8,0
+
+
+
+
+
+
 
 .org 0x2000
 

@@ -76,12 +76,18 @@ setup_IDT:
 	shlq	$48,	%rcx
 	addq	%rcx,	%rax
 	shrq	$32,	%rdx
-	leaq	IDT_Table(%rip),	%rdi
-	mov	$256,	%rcx
+	leaq	IDT_Table(%rip),	%rdi	// rdi 指向 IDT_Table
+	mov	$256,	%rcx			// 共 256 個 IDT entry
+
+/*
+從 setup_IDT 開始到這裡，就是準備 16 Bytes ( 128 bits ) 的 interrupt / trap gate descriptor
+並把所有 例外處理/中斷 都導到 ignore_int 這個 function
+*/
+
 rp_sidt:
-	movq	%rax,	(%rdi)
-	movq	%rdx,	8(%rdi)
-	addq	$0x10,	%rdi
+	movq	%rax,	(%rdi)			//   
+	movq	%rdx,	8(%rdi)			// 
+	addq	$0x10,	%rdi			// entry 每一項 16 bytes
 	dec	%rcx
 	jne	rp_sidt
 
