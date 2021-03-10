@@ -121,9 +121,13 @@ void init_memory()
 		TotalMem += (end - start) >> PAGE_2M_SHIFT;
 	}
 	
+	// 因為我們分配的最小單位為 2MB 的 page ，所以這邊拿取我們有多少個 page 可以使用。
 	color_printk(ORANGE,BLACK,"OS Can Used Total 2M PAGEs:%#018lx=%018ld\n",TotalMem,TotalMem);
 
 	TotalMem = memory_management_struct.e820[memory_management_struct.e820_length].address + memory_management_struct.e820[memory_management_struct.e820_length].length;
+	// Q: 不懂這一行的意思，這一個 index 不是沒有東西嗎？
+	// 說錯了，拿最後一個 index 的 memory 有什麼用意呢？
+	// A: 看書本 ( p131 )，這邊好像是想拿到最後一個可用的物理位址。所以最後一個項目的 address 加上長度就是最後一個可用的物理位址
 
 	//bits map construction init
 
