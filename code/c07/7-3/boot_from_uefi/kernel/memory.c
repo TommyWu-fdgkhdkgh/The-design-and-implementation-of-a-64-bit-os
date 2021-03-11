@@ -130,20 +130,32 @@ void init_memory()
 	// A: 看書本 ( p131 )，這邊好像是想拿到最後一個可用的物理位址。所以最後一個項目的 address 加上長度就是最後一個可用的物理位址
 
 	//bits map construction init
-
 	memory_management_struct.bits_map = (unsigned long *)((memory_management_struct.end_brk + PAGE_4K_SIZE - 1) & PAGE_4K_MASK);
 
 	memory_management_struct.bits_size = TotalMem >> PAGE_2M_SHIFT;
 
 	memory_management_struct.bits_length = (((unsigned long)(TotalMem >> PAGE_2M_SHIFT) + sizeof(long) * 8 - 1) / 8) & ( ~ (sizeof(long) - 1));
+	// Q: 這到底是 ... ?
+	// G: 我猜，每一個 page 都用一個 bit 去代表 ? 然後 bits_lengh 就是這張表的長度 ?
+	// TotalMem >> PAGE_2M_SHIFT  --> 總共有多少張 page
+	// sizeof(long) 我測是 8 bytes
+	// (~(sizeof(lont) - 1)) --> 希望以 8 為單位
+	// ((unsigned long)(TotalMem >> PAGE_2M_SHIFT) + sizeof(long) * 8 - 1) / 8) 算出來的單位是 byte，但因為指標的 type 是 unsigned long，所以這邊需要對 sizeof(long) 取整
+	// 8 * 8 就是一個 long 可以標示的 page 數量，所以這邊用 8 * 8 - 1 就是想對這一點進行取整
+	//
+	// 經過這一翻驚人的計算，(總 bytes 數量 * 8) >= TotalMem >> PAGE_2M_SHIFT
+	//
+	// 好厲害呀。。。原本以為這段程式碼在戳
 
 	memset(memory_management_struct.bits_map,0xff,memory_management_struct.bits_length);		//init bits map memory
+	// Q: bits map 是要做什麼呀?
 
 	//pages construction init
 
 	memory_management_struct.pages_struct = (struct Page *)(((unsigned long)memory_management_struct.bits_map + memory_management_struct.bits_length + PAGE_4K_SIZE - 1) & PAGE_4K_MASK);
 
 	memory_management_struct.pages_size = TotalMem >> PAGE_2M_SHIFT;
+        // 算出有多少 2M 的 page 可以使用
 
 	memory_management_struct.pages_length = ((TotalMem >> PAGE_2M_SHIFT) * sizeof(struct Page) + sizeof(long) - 1) & ( ~ (sizeof(long) - 1));
 
@@ -231,6 +243,8 @@ void init_memory()
 	color_printk(ORANGE,BLACK,"pages_struct:%#018lx,pages_size:%#018lx,pages_length:%#018lx\n",memory_management_struct.pages_struct,memory_management_struct.pages_size,memory_management_struct.pages_length);
 
 	color_printk(ORANGE,BLACK,"zones_struct:%#018lx,zones_size:%#018lx,zones_length:%#018lx\n",memory_management_struct.zones_struct,memory_management_struct.zones_size,memory_management_struct.zones_length);
+
+	while(1);	
 
 	ZONE_DMA_INDEX = 0;	//need rewrite in the future
 	ZONE_NORMAL_INDEX = 0;	//need rewrite in the future
