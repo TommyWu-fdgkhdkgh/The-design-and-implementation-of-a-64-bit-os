@@ -26,6 +26,13 @@
 
 struct Global_Memory_Descriptor memory_management_struct = {{0},0};
 
+/*
+
+   在 head.S 就已經初步的初始化好 IDT 了，
+   所以一進來這個 function，就可以用 i/0 來看除以 0 所發生的例外有沒有被處理。
+
+*/
+
 void Start_Kernel(void)
 {
 
@@ -67,7 +74,11 @@ void Start_Kernel(void)
         }
 
 
+        /*
+	
+	初始化螢幕顯示所需要的資訊
 
+	*/
 	Pos.XResolution = 1024;
 	Pos.YResolution = 768;
 
@@ -84,6 +95,11 @@ void Start_Kernel(void)
 
 	/*while(1)
 		;*/
+
+	/*
+	
+
+	*/
 
 	load_TR(10);
 

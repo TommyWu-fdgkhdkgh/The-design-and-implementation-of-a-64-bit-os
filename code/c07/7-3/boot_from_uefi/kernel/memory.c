@@ -17,6 +17,10 @@
 #include "lib.h"
 
 
+/*
+  zone 是比 page 還要大的單位，這邊 page 有一個指標指向 zone ， 是為了要知道自己是屬於哪個 zone
+
+*/
 unsigned long page_init(struct Page * page,unsigned long flags)
 {
 	if(!page->attribute)
@@ -36,6 +40,10 @@ unsigned long page_init(struct Page * page,unsigned long flags)
 	}
 	else
 	{
+		/*
+                  Q:為什麼這邊不更新 page->reference_count 以及 page->zone_struct->total_pages_link 呢？
+                  G:是因為只有改變 flag ，而看了下 flag ， 沒有要取用這個 page 的意思嗎?
+		*/
 		*(memory_management_struct.bits_map + ((page->PHY_address >> PAGE_2M_SHIFT) >> 6)) |= 1UL << (page->PHY_address >> PAGE_2M_SHIFT) % 64;	
 		page->attribute |= flags;
 	}
@@ -73,7 +81,15 @@ unsigned long page_clean(struct Page * page)
 	return 0;
 }
 
+/*
 
+在這裡 init 
+memory_management_struct 的 zone, page, bit 
+
+size  --> 數量
+lengh --> 所佔的 byte 數量
+
+*/
 void init_memory()
 {
 	int i,j;
@@ -180,8 +196,14 @@ void init_memory()
 		struct Page * p;
 		unsigned long * b;
 
-		if(memory_management_struct.e820[i].type != 1)
+		if(memory_management_struct.e820[i].type != 1) {
+			/*
+			type == 1 就是可用的記憶體，不是的話就跳過	
+			
+			*/
 			continue;
+		}
+
 		start = PAGE_2M_ALIGN(memory_management_struct.e820[i].address);
 		end   = ((memory_management_struct.e820[i].address + memory_management_struct.e820[i].length) >> PAGE_2M_SHIFT) << PAGE_2M_SHIFT;
 		if(end <= start)
@@ -190,7 +212,7 @@ void init_memory()
 		//zone init
 
 		z = memory_management_struct.zones_struct + memory_management_struct.zones_size;
-		memory_management_struct.zones_size++;
+		memory_management_struct.zones_size++; // 記錄有多少個可用的 zone
 
 		z->zone_start_address = start;
 		z->zone_end_address = end;
@@ -212,7 +234,12 @@ void init_memory()
 		for(j = 0;j < z->pages_length; j++ , p++)
 		{
 			p->zone_struct = z;
+
+			/*
+			在這邊決定了這個 struct Page 是代表哪一個物理位址
+			*/
 			p->PHY_address = start + PAGE_2M_SIZE * j;
+
 			p->attribute = 0;
 
 			p->reference_count = 0;
@@ -225,8 +252,20 @@ void init_memory()
 		
 	}
 
+/*
+memory_management_struct 
+
+這裡的 bit, page, zone 就是一個池子的概念。
+
+透過 uefi 階段拿到的 e820 ， 我們可以知道有許多 zone
+每個 zone 再對應到許多 pages
+每個 page 都有自己相對應的 1 bit
+
+
+*/
+
 	/////////////init address 0 to page struct 0; because the memory_management_struct.e820[0].type != 1
-	
+	// 此段可參考書本的 p133, p134
 	memory_management_struct.pages_struct->zone_struct = memory_management_struct.zones_struct;
 
 	memory_management_struct.pages_struct->PHY_address = 0UL;
@@ -244,7 +283,7 @@ void init_memory()
 
 	color_printk(ORANGE,BLACK,"zones_struct:%#018lx,zones_size:%#018lx,zones_length:%#018lx\n",memory_management_struct.zones_struct,memory_management_struct.zones_size,memory_management_struct.zones_length);
 
-	while(1);	
+	//while(1);	
 
 	ZONE_DMA_INDEX = 0;	//need rewrite in the future
 	ZONE_NORMAL_INDEX = 0;	//need rewrite in the future
@@ -268,6 +307,11 @@ void init_memory()
 	for(j = 0;j <= i;j++)
 	{
 		page_init(memory_management_struct.pages_struct + j,PG_PTable_Maped | PG_Kernel_Init | PG_Active | PG_Kernel);
+		/*
+                Q: 為什麼到 z->zone_start_address 為止，頁的屬性都是"使用中的頁"？明明有許多頁都沒有使用。
+
+		G: 或許這裡的 "使用中的頁" ，並不是代表已經被佔據且使用的 "頁"，而是之後可以用來分配的頁
+		*/
 	}
 
 
@@ -296,6 +340,12 @@ void init_memory()
 
 struct Page * alloc_pages(int zone_select,int number,unsigned long page_flags)
 {
+        /*
+        zone_select : 想要選擇哪一種 zone
+        number      : 想申請的 page 數量
+        page_flags  : 拿到 page 後，會對 page 設定的 page->attribute
+        */
+
 	int i;
 	unsigned long page = 0;
 

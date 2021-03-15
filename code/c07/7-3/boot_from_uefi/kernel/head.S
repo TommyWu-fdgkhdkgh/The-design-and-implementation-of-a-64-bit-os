@@ -86,6 +86,14 @@ rp_sidt:
 	addq	$0x10,	%rdi
 	dec	%rcx
 	jne	rp_sidt
+/*
+ rax 以及 rdx 各儲存 IDT entry 所需的資訊
+ IDT 共有 256 個 entry, 每個 entry 需 16 Byte
+ 
+ 所以只須將兩個 8 Bytes 的暫存器去賦值 256 次就可以了。
+
+*/
+
 
 setup_TSS64:
 	leaq	TSS64_Table(%rip),	%rdx
@@ -115,6 +123,11 @@ setup_TSS64:
 	pushq	$0x08
 	pushq	%rax
 	lretq
+/*
+當 interrupt 導致特權階級有所變化的時候，我們會需要 TSS 裡的 context，來幫助我們切換 stack
+
+*/
+
 
 go_to_kernel:
 	.quad	Start_Kernel
