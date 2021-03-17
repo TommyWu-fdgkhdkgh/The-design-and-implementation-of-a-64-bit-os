@@ -80,7 +80,7 @@ rp_sidt:
  addq $0x10, %rdi
  dec %rcx
  jne rp_sidt
-
+# 98 "head.S"
 setup_TSS64:
  leaq TSS64_Table(%rip), %rdx
  xorq %rax, %rax
@@ -109,6 +109,11 @@ setup_TSS64:
  pushq $0x08
  pushq %rax
  lretq
+
+
+
+
+
 
 go_to_kernel:
  .quad Start_Kernel

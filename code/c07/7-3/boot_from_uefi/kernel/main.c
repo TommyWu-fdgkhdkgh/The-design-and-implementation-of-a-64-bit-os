@@ -93,19 +93,28 @@ void Start_Kernel(void)
 
 	color_printk(RED,BLACK,"fdgk say Hello World!\n");
 
-	/*while(1)
+        /*i = 1/0;  // try exception handler
+
+	while(1)
 		;*/
 
 	/*
-	
+        
+          TR 這個 register 載入了 TSS 在 GDT 的段選擇子
+          因為 TSS 在這裡是位於 GDT 的第 10 個 entry ， 所以這邊是 10	  
 
 	*/
 
 	load_TR(10);
 
+	/*
+	  書本 p119 下面
+	*/
 	set_tss64(_stack_start, _stack_start, _stack_start, 0xffff800000007c00, 0xffff800000007c00, 0xffff800000007c00, 0xffff800000007c00, 0xffff800000007c00, 0xffff800000007c00, 0xffff800000007c00);
 
 	sys_vector_init();
+
+        i = 1/0;  // try exception handler
 
 	memory_management_struct.start_code = (unsigned long)& _text;
 	memory_management_struct.end_code   = (unsigned long)& _etext;

@@ -124,6 +124,11 @@ union task_union
 	struct task_struct task;
 	unsigned long stack[STACK_SIZE / sizeof(unsigned long)];
 }__attribute__((aligned (8)));	//8Bytes align
+/*
+  Q: linux 為什麼會這樣子設計呢?
+
+
+*/
 
 struct mm_struct init_mm;
 struct thread_struct init_thread;

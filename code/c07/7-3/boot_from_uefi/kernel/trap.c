@@ -319,6 +319,12 @@ void do_virtualization_exception(struct pt_regs * regs,unsigned long error_code)
 
 void sys_vector_init()
 {
+	/*
+	
+	divide_error ... 定義在 entry.S
+
+	*/
+
 	set_trap_gate(0,1,divide_error);
 	set_trap_gate(1,1,debug);
 	set_intr_gate(2,1,nmi);

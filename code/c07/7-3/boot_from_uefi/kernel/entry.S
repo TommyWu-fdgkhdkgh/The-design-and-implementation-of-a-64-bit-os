@@ -40,6 +40,13 @@ RFLAGS	=	0xa8
 OLDRSP	=	0xb0
 OLDSS	=	0xb8
 
+/*
+只有特權階級有變換的時候，才需要彈出 OLDRSP, OLDSS
+iret 會自行判斷有沒有特權階級的變換
+書本 p112 頁
+*/
+
+
 RESTORE_ALL:
 	popq	%r15;		
 	popq	%r14;		
@@ -130,11 +137,20 @@ ENTRY(ret_system_call)
 	sysexit					 
 
 
+/*
+除法錯誤的例外處理
+*/
 ENTRY(divide_error)
 	pushq	$0
 	pushq	%rax
 	leaq	do_divide_error(%rip),	%rax
-	xchgq	%rax,	(%rsp)
+	xchgq	%rax,	(%rsp)                  // 把 do_divide_error 的位址存放到 stack 裡
+
+
+/*
+ xchgq : 交換 dest, src 的值
+ https://zh.m.wikibooks.org/zh-tw/X86%E7%B5%84%E5%90%88%E8%AA%9E%E8%A8%80/%E5%9F%BA%E6%9C%AC%E6%8C%87%E4%BB%A4%E9%9B%86/IA32%E6%8C%87%E4%BB%A4:xchg
+*/
 
 error_code:
 	pushq	%rax

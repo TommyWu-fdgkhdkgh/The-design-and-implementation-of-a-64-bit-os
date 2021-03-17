@@ -33,7 +33,7 @@ CS = 0xa0
 RFLAGS = 0xa8
 OLDRSP = 0xb0
 OLDSS = 0xb8
-
+# 50 "entry.S"
 RESTORE_ALL:
  popq %r15;
  popq %r14;
@@ -124,11 +124,20 @@ ret_from_exception:
  sysexit
 
 
+
+
+
 .global divide_error; divide_error:
  pushq $0
  pushq %rax
  leaq do_divide_error(%rip), %rax
  xchgq %rax, (%rsp)
+
+
+
+
+
+
 
 error_code:
  pushq %rax

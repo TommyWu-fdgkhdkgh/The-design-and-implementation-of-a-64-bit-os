@@ -86,6 +86,9 @@ do{									\
 
 /*inline*/ void set_trap_gate(unsigned int n,unsigned char ist,void * addr)
 {
+	// Q: ist 是什麼？
+	// A: 可參閱書本 p234
+	// ist 是 ia-32e 模式才有意義的欄位 ，"我猜" 是提供更快速的從 interrupt / trap context 返回普通 context 的方式
 	_set_gate(IDT_Table + n , 0x8F , ist , addr);	//P,DPL=0,TYPE=F
 }
 
