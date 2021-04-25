@@ -1,11 +1,24 @@
 
+/***************************************************
+*               版权声明
+*
+*       本操作系统名为：MINE
+*       该操作系统未经授权不得以盈利或非盈利为目的进行开发，
+*       只允许个人学习以及公开交流使用
+*
+*       代码最终所有权及解释权归田宇所有；
+*
+*       本模块作者：    田宇
+*       EMail:          345538255@qq.com
+*
+*
+***************************************************/
+
 /*
   kernel_boot_para_info --> 現在才注意到，這個東西會存在 0x60000
   這應該是要丟給 OS 的資料
 
-  我這邊先 workaround ， 直接把 E820 的開頭的指標 ( 0x60024 ) 往外丟
-
-
+  我這邊先 workaround ， 直接把 E820 的開頭的指標往外丟
 
 */
 
@@ -33,6 +46,9 @@ struct EFI_E820_MEMORY_DESCRIPTOR
     unsigned long length;
     unsigned int  type;
 }__attribute__((packed));
+/*
+使用 "packed" 的話，就不會幫我們自動 align ，而是每個 member 會緊緊靠在一起。
+*/
 
 struct EFI_E820_MEMORY_DESCRIPTOR_INFORMATION
 {
@@ -48,6 +64,8 @@ struct KERNEL_BOOT_PARAMETER_INFORMATION
 
 EFI_STATUS EFIAPI UefiMain(IN EFI_HANDLE ImageHandle,IN EFI_SYSTEM_TABLE *SystemTable)
 {
+    // Q: ImageHandle
+
     EFI_LOADED_IMAGE        *LoadedImage;
     EFI_FILE_IO_INTERFACE   *Vol;
     EFI_FILE_HANDLE         RootFs;
@@ -58,9 +76,21 @@ EFI_STATUS EFIAPI UefiMain(IN EFI_HANDLE ImageHandle,IN EFI_SYSTEM_TABLE *System
     EFI_STATUS status = EFI_SUCCESS;
     struct KERNEL_BOOT_PARAMETER_INFORMATION *kernel_boot_para_info = NULL;
 
-//////////////////////
+    ///////////////////////////////////////////////////////////////////////
+
     gBS->HandleProtocol(ImageHandle,&gEfiLoadedImageProtocolGuid,(VOID*)&LoadedImage);
+    // Q: gBS ?
+    // G: 我猜是 global Boot Service 的意思
+    // R: https://github.com/tianocore/edk2/blob/master/MdePkg/Library/UefiBootServicesTableLib/UefiBootServicesTableLib.c
+    // R: https://blog.csdn.net/choumin/article/details/109849675
+    //
+    // Q: gEfiLoadedImageProtocolGuid
+    // R: https://edk2-docs.gitbook.io/edk-ii-uefi-driver-writer-s-guide/27_load_file_driver_design_guidelines
+    // R: https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/SimpleFileSystem.h
+
     gBS->HandleProtocol(LoadedImage->DeviceHandle,&gEfiSimpleFileSystemProtocolGuid,(VOID*)&Vol);
+    // Q: 
+
     Vol->OpenVolume(Vol,&RootFs);
     status = RootFs->Open(RootFs,&FileHandle,(CHAR16*)L"kernel.bin",EFI_FILE_MODE_READ,0);
     if(EFI_ERROR(status))
@@ -80,6 +110,7 @@ EFI_STATUS EFIAPI UefiMain(IN EFI_HANDLE ImageHandle,IN EFI_SYSTEM_TABLE *System
     Print(L"\tFileName:%s\t Size:%d\t FileSize:%d\t Physical Size:%d\n",FileInfo->FileName,FileInfo->Size,FileInfo->FileSize,FileInfo->PhysicalSize);
 
     // 這邊是為了 allocate 放 kernel.bin 的位址
+    // 我們將 kernel.bin 載入到物理位址 0x100000 的地方
     gBS->AllocatePages(AllocateAddress,EfiConventionalMemory,(FileInfo->FileSize + 0x1000 - 1) / 0x1000,&pages);
     Print(L"Read Kernel File to Memory Address:%018lx\n",pages);
     BufferSize = FileInfo->FileSize;
@@ -88,6 +119,8 @@ EFI_STATUS EFIAPI UefiMain(IN EFI_HANDLE ImageHandle,IN EFI_SYSTEM_TABLE *System
     FileHandle->Close(FileHandle);
     RootFs->Close(RootFs);
     /* Read File to memory end */
+
+    ///////////////////////////////////////////////////////////////////////
 
     /* Read graphics information start */
     EFI_GRAPHICS_OUTPUT_PROTOCOL* gGraphicsOutput = 0;
@@ -105,7 +138,10 @@ EFI_STATUS EFIAPI UefiMain(IN EFI_HANDLE ImageHandle,IN EFI_SYSTEM_TABLE *System
         page 要放在哪裡
       )
     */
-    /* 這邊又對 0x100000 進行 allocate page ， 是為了要把 graphic 位址的映射填到 OS 的 PTE */
+
+    // 這邊又對 0x100000 進行 allocate page ， 是為了要把 graphic 位址的映射填到 OS 的 PTE 
+    // 上面說錯了，現在 pages 的值是 0x60000
+    
     gBS->AllocatePages(AllocateAddress,EfiConventionalMemory,1,&pages);
     gBS->SetMem((void*)kernel_boot_para_info,0x1000,0);
 
@@ -123,6 +159,8 @@ EFI_STATUS EFIAPI UefiMain(IN EFI_HANDLE ImageHandle,IN EFI_SYSTEM_TABLE *System
             H_V_Resolution = Info->HorizontalResolution * Info->VerticalResolution;
             MaxResolutionMode = i;
         }*/
+
+	// 因為我的電腦在最高畫質的時候，顯示起來怪怪的，所以我在這邊只要解析有到 1024 * 768 ，我就停下來。
 	if((Info->PixelFormat == 1) && Info->HorizontalResolution == 1024 && Info->VerticalResolution == 768) {
           fdgkResolutionMode = i; 
 	  break;
@@ -143,6 +181,8 @@ EFI_STATUS EFIAPI UefiMain(IN EFI_HANDLE ImageHandle,IN EFI_SYSTEM_TABLE *System
     kernel_boot_para_info->Graphics_Info.FrameBufferBase = gGraphicsOutput->Mode->FrameBufferBase;
     kernel_boot_para_info->Graphics_Info.FrameBufferSize = gGraphicsOutput->Mode->FrameBufferSize;
 
+    // 這邊開始將 frame buffer 映射到 Virtual Address
+    // 最好是畫個圖解釋一下
     Print(L"Map Graphics FrameBufferBase to Virtual Address 0xffff800003000000\n");
     long * PageTableEntry = (long *)0x103000;
     /*for(i = 0;i < 10;i++) {
@@ -155,6 +195,8 @@ EFI_STATUS EFIAPI UefiMain(IN EFI_HANDLE ImageHandle,IN EFI_SYSTEM_TABLE *System
         Print(L"Page %02d,Address:%018lx,Value:%018lx\n",i,(long)(PageTableEntry + 24 + i),*(PageTableEntry + 24 + i));
     }
     /* read graphic information end */
+
+    ///////////////////////////////////////////////////////////////////////
 
     /* 取得記憶體配置 */
     struct EFI_E820_MEMORY_DESCRIPTOR *E820p = kernel_boot_para_info->E820_Info.E820_Entry;
@@ -260,6 +302,7 @@ EFI_STATUS EFIAPI UefiMain(IN EFI_HANDLE ImageHandle,IN EFI_SYSTEM_TABLE *System
         }
     }
 
+    // Q: 印象中 kernel_boot_para_info->E820_Info.E820_Entry 有個特殊用途
     LastE820 = kernel_boot_para_info->E820_Info.E820_Entry;
     for(i = 0;i < E820Count;i++)
     {
@@ -276,7 +319,11 @@ EFI_STATUS EFIAPI UefiMain(IN EFI_HANDLE ImageHandle,IN EFI_SYSTEM_TABLE *System
 
     Print(L"Call ExitBootServices And Jmp to Kernel.\n");
     gBS->GetMemoryMap(&MemMapSize,MemMap,&MapKey,&DescriptorSize,&DesVersion);
+    /* 取得記憶體配置 end */
 
+    ///////////////////////////////////////////////////////////////////////
+
+    /* close protocol and jump to kernel */
     gBS->CloseProtocol(LoadedImage->DeviceHandle,&gEfiSimpleFileSystemProtocolGuid,ImageHandle,NULL);
     gBS->CloseProtocol(ImageHandle,&gEfiLoadedImageProtocolGuid,ImageHandle,NULL);
 
