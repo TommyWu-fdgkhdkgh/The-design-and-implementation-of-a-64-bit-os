@@ -26,6 +26,9 @@ ENTRY(_start)
 	mov	%ax,	%ss
 	mov	$0x7E00,	%esp
 
+	//Q: 這裡要先載入 paging 耶，為什麼呀？
+        //G: 從 uefi 跳過來後，我們已經在 long mode 了，而接下來會做記憶體操作，會需要使用到 section & paging 來將 virtual address 轉成 physical address
+        //   而我們不知道 uefi 是怎麼設定 paging 的，所以我們要先把 paging 變成是我們自己的設定。
 	movq	$0x101000,	%rax
 	movq	%rax,		%cr3
 
@@ -44,11 +47,11 @@ ENTRY(_start)
 	mov	%ax,	%gs
 	mov	%ax,	%ss
 
-	movq	_stack_start(%rip),	%rsp
+	//movq	_stack_start(%rip),	%rsp
 //=======	load	cr3
 
-	movq	$0x101000,	%rax
-	movq	%rax,		%cr3
+	//movq	$0x101000,	%rax
+	//movq	%rax,		%cr3
 	movq	switch_seg(%rip),	%rax
 	pushq	$0x08
 	pushq	%rax
@@ -65,7 +68,7 @@ entry64:
 	movq	%rax,	%es
 	movq	%rax,	%gs
 	movq	%rax,	%ss
-	movq	_stack_start(%rip),	%rsp		/* rsp address */
+	//movq	_stack_start(%rip),	%rsp		/* rsp address */
 
 setup_IDT:							
 	leaq	ignore_int(%rip),	%rdx
@@ -91,7 +94,6 @@ rp_sidt:
  IDT 共有 256 個 entry, 每個 entry 需 16 Byte
  
  所以只須將兩個 8 Bytes 的暫存器去賦值 256 次就可以了。
-
 */
 
 

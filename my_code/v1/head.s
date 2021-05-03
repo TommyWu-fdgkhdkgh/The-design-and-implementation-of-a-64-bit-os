@@ -20,6 +20,7 @@
  mov %ax, %ss
  mov $0x7E00, %esp
 
+
  movq $0x101000, %rax
  movq %rax, %cr3
 
@@ -41,8 +42,8 @@
  movq _stack_start(%rip), %rsp
 
 
- movq $0x101000, %rax
- movq %rax, %cr3
+
+
  movq switch_seg(%rip), %rax
  pushq $0x08
  pushq %rax
