@@ -127,6 +127,7 @@ static char * number(char * str, long num, int base, int size, int precision,	in
 
 int vsprintf(char * buf,const char *fmt, va_list args)
 {
+	// 把 fmt ( format string ) 跟 args 湊在一起，組成 buf
 	char * str,*s;
 	int flags;
 	int field_width;
@@ -161,7 +162,7 @@ int vsprintf(char * buf,const char *fmt, va_list args)
 			}
 
 			/* get field width */
-
+ 			// e.g. %10d, 要用 10 個字元的寬度來裝進這個 format string 轉化後的內容。
 			field_width = -1;
 			if(is_digit(*fmt))
 				field_width = skip_atoi(&fmt);
