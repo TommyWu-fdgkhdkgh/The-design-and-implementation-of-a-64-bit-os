@@ -16,7 +16,7 @@
 #include <stdarg.h>
 #include "printk.h"
 #include "lib.h"
-#include "linkage.h"
+//#include "linkage.h"
 
 
 /*
@@ -33,12 +33,7 @@ void putchar(unsigned int * fb,int Xsize,int x,int y,unsigned int FRcolor,unsign
 
 	for(i = 0; i< 16;i++)
 	{
-		// Xsize --> 螢幕解析度的 "寬"
 		addr = fb + Xsize * ( y + i ) + x;
-
-		// 0x100 == 256
-		// 從最左邊的 bit 開始判斷， bit == 1 就為它填上 Font Color ( FR )
-		//                           bit == 0 就為它填上 Back Color ( BK )
 		testval = 0x100;
 		for(j = 0;j < 8;j ++)		
 		{
@@ -59,7 +54,6 @@ void putchar(unsigned int * fb,int Xsize,int x,int y,unsigned int FRcolor,unsign
    把一段 char 換算成 int，並將指標丟到這一段 char 的後面
 
 */
-
 int skip_atoi(const char **s)
 {
 	int i=0;
@@ -72,6 +66,7 @@ int skip_atoi(const char **s)
 /*
   根據 format string 傳來的資訊，以及從可變長度參數傳來的值，轉變成字串後丟回
 */
+
 static char * number(char * str, long num, int base, int size, int precision,	int type)
 {
 	char c,sign,tmp[50];
@@ -315,6 +310,7 @@ int vsprintf(char * buf,const char *fmt, va_list args)
 	*str = '\0';
 	return str - buf;
 }
+
 
 /*
 
