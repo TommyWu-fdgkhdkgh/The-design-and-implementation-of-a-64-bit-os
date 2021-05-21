@@ -20,7 +20,13 @@
 
 
 /*
-
+  fb      :    FrameBuffer 的基底位址 
+  Xsize   : 解析度中的寬度，在我們的例子為 1024，因為我們的解析度是 1024 * 768
+  x       : x 座標，範圍在 0 ~ 1023 之間
+  y       : y 座標，範圍在 0 ~ 767  之間
+  FRcolor : 想為字元塗上的顏色
+  BKcolor : 想為背景塗上的顏色
+  font    : ASCII 碼, 表示想顯示哪一個字元
 */
 
 void putchar(unsigned int * fb,int Xsize,int x,int y,unsigned int FRcolor,unsigned int BKcolor,unsigned char font)
@@ -33,6 +39,11 @@ void putchar(unsigned int * fb,int Xsize,int x,int y,unsigned int FRcolor,unsign
 
 	for(i = 0; i< 16;i++)
 	{
+		// 每個 *fontp 為 1 bytes, 8 bits
+		// 在這邊會去測試這 8 個 bit
+		// 1 --> 塗上字元顏色
+		// 0 --> 塗上背景顏色
+
 		addr = fb + Xsize * ( y + i ) + x;
 		testval = 0x100;
 		for(j = 0;j < 8;j ++)		
@@ -42,6 +53,10 @@ void putchar(unsigned int * fb,int Xsize,int x,int y,unsigned int FRcolor,unsign
 				*addr = FRcolor;
 			else
 				*addr = BKcolor;
+
+			// 每個 *addr 為 4 bytes
+			// 因為每個 pixel 為 4 bytes
+
 			addr++;
 		}
 		fontp++;		
