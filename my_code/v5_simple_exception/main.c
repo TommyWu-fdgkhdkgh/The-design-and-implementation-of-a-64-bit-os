@@ -102,8 +102,9 @@ void Start_Kernel(void)
 	/* FrameBuffer 的長度 ... 解析度 * 4 bytes ( 一個 pixel 用 4 bytes 表示 ) 並對齊一個 page 的大小 */
         Pos.FB_length = (Pos.XResolution * Pos.YResolution * 4 + PAGE_4K_SIZE - 1) & PAGE_4K_MASK;
 
-        putchar(Pos.FB_addr, Pos.XResolution, 0, 0, WHITE, BLACK, 48);
+	color_printk(WHITE, BLACK,"Hello World %s!\n", "fdgkhdkgh");
 
+	int a = 1 / 0;
 
 	while(1)
 		;
