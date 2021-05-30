@@ -112,8 +112,8 @@ void Start_Kernel(void)
 
 	sys_vector_init();
 
-	//int a = 1 / 0;
-	i = *(int *)0xffff80000aa00000;
+	int a = 1 / 0;
+	//i = *(int *)0xffff80000aa00000;
 
 	while(1)
 		;
