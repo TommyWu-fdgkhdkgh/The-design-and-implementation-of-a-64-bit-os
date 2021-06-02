@@ -15,6 +15,8 @@
 
 #include "trap.h"
 #include "gate.h"
+#include "printk.h"
+#include "lib.h"
 
 /*
 

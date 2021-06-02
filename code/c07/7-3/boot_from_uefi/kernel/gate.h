@@ -31,7 +31,23 @@ extern struct gate_struct IDT_Table[];
 extern unsigned int TSS64_Table[26];
 
 /*
+  inline assembly ( 內嵌組語，行內組語 )
 
+  __asm__ ( "asm statements" : outputs : inputs : registers-modified  )
+
+  asm statemetns --> 也就是組合語言寫成的 function 本身
+
+  http://www.ibiblio.org/gferg/ldp/GCC-Inline-Assembly-HOWTO.html 
+
+
+  經過一些實驗後，回頭看這邊就看得懂了
+
+  一開始先將 code_addr 的值丟給 __d0 也就是 %2, ist 的值丟給 __d1 也就是 %3 --> 一方面也方便讓 input 的欄位對 rax, 以及 rdx 進行賦值 ( Q: 為什麼不直接在 input 欄位對 rax, rdx 賦值，而要使用 __d0 以及 __d1 當作跳板呢 ? )
+  gate_selector_addr[0] 的值丟給 %0, gate_selector_addr[1] 的值丟給 %1 
+  把 attr << 8 丟給 %4
+  
+  最後會把一些值給 *((unsigned long *)(gate_selector_addr)) 以及 *(1 + (unsigned long *)(gate_selector_addr)) --> 這裡應該是對 GDT 或 IDT 的表項設值 ( ? )
+  因為 gate 都是 128 bits ( 16 bytes ) ， 所以要用 8 bytes 的操作做兩次
 */
 
 #define _set_gate(gate_selector_addr,attr,ist,code_addr)	\
@@ -61,6 +77,12 @@ do								\
 
 /*
 
+  GDT 的每一個 index 的大小是 8 bytes
+  8 == 1 << 3
+  所以 n 代表的就是 GDT 的 index
+
+  G : 約束符 "a" ==> "ax"
+  Q : 最後加上 memory 是什麼意思呀?  
 */
 
 #define load_TR(n) 							\
@@ -118,6 +140,8 @@ do{									\
 void set_tss64(unsigned long rsp0,unsigned long rsp1,unsigned long rsp2,unsigned long ist1,unsigned long ist2,unsigned long ist3,
 unsigned long ist4,unsigned long ist5,unsigned long ist6,unsigned long ist7)
 {
+	// TSS64_Table 的型態是 unsigned int* ， 所以每 + 1 代表的是 + 4 bytes
+
 	*(unsigned long *)(TSS64_Table+1) = rsp0;
 	*(unsigned long *)(TSS64_Table+3) = rsp1;
 	*(unsigned long *)(TSS64_Table+5) = rsp2;
